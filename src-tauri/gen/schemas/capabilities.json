@@ -1,0 +1,1 @@
+{"main-capability":{"identifier":"main-capability","description":"Native file dialogs and the bundled Vrew editing engine","local":true,"windows":["main"],"permissions":["core:default","dialog:allow-open","dialog:allow-save",{"identifier":"shell:allow-execute","allow":[{"args":true,"name":"binaries/vrew-engine","sidecar":true}]}]}}

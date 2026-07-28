@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+.idea/
+.vscode/
+node_modules/
+build/
+dist/
+*.spec
+artifacts/
+src-tauri/target/
+src-tauri/binaries/

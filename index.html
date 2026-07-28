@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vrew 자동 편집기</title>
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">LOCAL DESKTOP WORKFLOW</p>
+          <h1>Vrew 자동 편집기</h1>
+          <p class="lead">경로를 고르고 분석한 다음, 원본을 보존한 복제본을 만듭니다.</p>
+        </div>
+        <span class="local-badge">컴퓨터 안에서만 처리</span>
+      </header>
+
+      <div class="layout">
+        <section class="panel form-panel">
+          <h2>파일 선택</h2>
+          <div id="path-fields"></div>
+          <p class="auto-note">원본 Vrew를 고르면 같은 폴더의 <code>*_flow_prompts.txt</code>, <code>intro1~n.mp4</code>와 하위 폴더의 번호 이미지를 자동으로 찾습니다. 공통 클립 경로는 다음 실행에도 기억합니다.</p>
+
+          <div class="section-title">
+            <h2>편집 옵션</h2>
+            <span>규칙 기반</span>
+          </div>
+          <div class="checks">
+            <label><input id="repair" type="checkbox" checked /> 대사·나레이션 재분배</label>
+            <label><input id="attach-images" type="checkbox" checked /> 번호 이미지 첨부</label>
+            <label><input id="ken-burns" type="checkbox" checked /> Ken Burns 움직임</label>
+          </div>
+          <div class="option-grid">
+            <label>최대 글자<input id="max-chars" type="number" value="20" /></label>
+            <label>최소 초<input id="min-seconds" type="number" value="15" /></label>
+            <label>최대 초<input id="max-seconds" type="number" value="20" /></label>
+            <label>이미지 변형<input id="variant" value="1" title="001-1, 001-2처럼 같은 번호의 이미지가 여러 개일 때 우선 사용할 하이픈 뒤 번호" /></label>
+            <label>랜덤 시드<input id="seed" type="number" value="20260728" /></label>
+          </div>
+          <p class="option-note"><strong>이미지 변형 1</strong>: <code>001-1.jpeg</code>, <code>001-2.jpeg</code>처럼 같은 장면 이미지가 여러 개일 때 <code>-1</code> 파일을 우선 선택한다는 뜻입니다. 이미지가 하나뿐이면 영향이 없습니다.</p>
+
+          <div class="rule-box">
+            <strong>공통 Vrew 적용 규칙</strong>
+            <p>1~2번은 기존 구독 안내를 교체하고 3~7번은 끝에 추가합니다. 워터마크, AI 안내 문구, 자막 글꼴·색·외곽선·위치도 전체 클립에 복제합니다.</p>
+          </div>
+
+          <div class="actions">
+            <button id="analyze">변경안 분석</button>
+            <button id="transform" class="primary">복제본 생성</button>
+          </div>
+          <div id="status" class="status">준비되었습니다.</div>
+        </section>
+
+        <section class="panel result-panel">
+          <div class="section-title">
+            <h2>검증 결과</h2>
+            <span id="result-state">대기 중</span>
+          </div>
+          <div id="metrics" class="metrics"></div>
+          <pre id="result">분석 결과가 여기에 표시됩니다.</pre>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

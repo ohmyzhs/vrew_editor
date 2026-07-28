@@ -1,0 +1,18 @@
+[package]
+name = "vrew-auto-editor"
+version = "0.2.0"
+description = "Vrew project automation desktop app"
+authors = ["gabriel.k"]
+edition = "2021"
+
+[lib]
+name = "vrew_auto_editor_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-shell = "2"
