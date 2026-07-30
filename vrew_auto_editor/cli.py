@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -12,6 +13,8 @@ from .workflow import analyze_project, transform_project, write_report
 
 def configure_utf8_stdio() -> None:
     """Keep the Tauri sidecar byte protocol UTF-8 on Windows code pages."""
+    os.environ["PYTHONUTF8"] = "1"
+    os.environ["PYTHONIOENCODING"] = "utf-8"
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is None:

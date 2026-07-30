@@ -12,16 +12,20 @@ def _run(command: list[str]) -> str | None:
     result = subprocess.run(
         command,
         capture_output=True,
-        text=True,
         check=False,
     )
+    stdout = result.stdout.decode("utf-8-sig", errors="replace")
+    stderr = result.stderr.decode("utf-8-sig", errors="replace")
     if result.returncode != 0:
         # Cancel is not an application error.
-        combined = f"{result.stdout}\n{result.stderr}".casefold()
+        combined = f"{stdout}\n{stderr}".casefold()
         if "cancel" in combined or result.returncode == 1:
             return None
-        raise VrewError(result.stderr.strip() or "경로 선택창을 열지 못했습니다.")
-    value = result.stdout.strip()
+        raise VrewError(stderr.strip() or "경로 선택창을 열지 못했습니다.")
+    try:
+        value = result.stdout.decode("utf-8-sig").strip()
+    except UnicodeDecodeError as exc:
+        raise VrewError("경로 선택 결과가 UTF-8이 아닙니다.") from exc
     return value or None
 
 

@@ -14,10 +14,48 @@ from typing import Any, BinaryIO, Iterable
 
 
 SUPPORTED_PROJECT_VERSIONS = {16, 17}
+WINDOWS_INVALID_FILENAME_CHARS = frozenset('<>:"/\\|?*')
+WINDOWS_RESERVED_FILENAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{number}" for number in range(1, 10)}
+    | {f"LPT{number}" for number in range(1, 10)}
+)
 
 
 class VrewError(RuntimeError):
     """Raised when a Vrew project cannot be safely processed."""
+
+
+def validate_windows_filename(name: str) -> None:
+    """Reject names that cannot be created through Windows Unicode APIs."""
+    if not name or name in {".", ".."}:
+        raise VrewError("출력 파일명이 비어 있거나 사용할 수 없는 이름입니다.")
+    invalid = [
+        character
+        for character in name
+        if character in WINDOWS_INVALID_FILENAME_CHARS or ord(character) < 32
+    ]
+    if invalid:
+        labels = ", ".join(
+            f"{character!r} (U+{ord(character):04X})"
+            for character in dict.fromkeys(invalid)
+        )
+        raise VrewError(f"Windows 출력 파일명에 사용할 수 없는 문자가 있습니다: {labels}")
+    if name.endswith((" ", ".")):
+        character = name[-1]
+        raise VrewError(
+            "Windows 출력 파일명은 공백이나 점으로 끝날 수 없습니다: "
+            f"{character!r} (U+{ord(character):04X})"
+        )
+    device_name = name.split(".", 1)[0].rstrip(" .").upper()
+    if device_name in WINDOWS_RESERVED_FILENAMES:
+        raise VrewError(f"Windows 예약 파일명은 사용할 수 없습니다: {device_name}")
+    utf16_units = len(name.encode("utf-16-le")) // 2
+    if utf16_units > 255:
+        raise VrewError(
+            "Windows 출력 파일명은 UTF-16 기준 255 코드 단위를 넘을 수 없습니다: "
+            f"{utf16_units}"
+        )
 
 
 def short_id(length: int = 10) -> str:
@@ -133,7 +171,9 @@ class VrewProject:
         self.pending_media.append(PendingMedia(archive_name, data=data))
 
     def save(self, output_path: str | Path) -> Path:
-        output = Path(output_path).expanduser().resolve()
+        output = Path(output_path).expanduser()
+        validate_windows_filename(output.name)
+        output = output.resolve()
         if output == self.source_path:
             raise VrewError("원본 파일에는 덮어쓸 수 없습니다. 다른 출력 경로를 선택하세요.")
         if output.exists():

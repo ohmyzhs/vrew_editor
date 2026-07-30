@@ -135,22 +135,36 @@ def probe_video(path: str | Path) -> dict[str, Any]:
             "인트로 영상 분석에 ffprobe가 필요합니다. FFmpeg를 설치하거나 "
             "ffprobe 실행 파일을 앱과 같은 폴더에 두세요."
         )
-    result = subprocess.run(
-        [
-            executable,
-            "-v",
-            "error",
-            "-show_streams",
-            "-show_format",
-            "-of",
-            "json",
-            str(source),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    payload = json.loads(result.stdout)
+    try:
+        result = subprocess.run(
+            [
+                executable,
+                "-v",
+                "error",
+                "-show_streams",
+                "-show_format",
+                "-of",
+                "json",
+                str(source),
+            ],
+            check=False,
+            capture_output=True,
+        )
+    except OSError as exc:
+        raise VrewError(f"ffprobe를 실행하지 못했습니다: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.decode("utf-8", errors="replace").strip()
+        message = f"ffprobe가 영상을 분석하지 못했습니다: {source}"
+        if detail:
+            message = f"{message}\n{detail}"
+        raise VrewError(message)
+    try:
+        payload = json.loads(result.stdout.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise VrewError(
+            "ffprobe 결과를 UTF-8 JSON으로 읽지 못했습니다. "
+            "공식 FFmpeg 배포본인지 확인해 주세요."
+        ) from exc
     video = next(
         (stream for stream in payload["streams"] if stream["codec_type"] == "video"),
         None,

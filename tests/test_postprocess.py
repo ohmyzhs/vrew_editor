@@ -10,8 +10,9 @@ from vrew_auto_editor.postprocess import (
     _equal_duration_partitions,
     attach_video_overlay,
     discover_intro_videos,
+    probe_video,
 )
-from vrew_auto_editor.project import VrewProject
+from vrew_auto_editor.project import VrewError, VrewProject
 
 
 def clip(duration: float) -> dict:
@@ -19,6 +20,37 @@ def clip(duration: float) -> dict:
 
 
 class IntroPlanningTests(unittest.TestCase):
+    @patch("vrew_auto_editor.postprocess.subprocess.run")
+    @patch("vrew_auto_editor.postprocess.shutil.which", return_value="ffprobe")
+    def test_probe_video_decodes_utf8_without_windows_codepage(
+        self, _which, run
+    ) -> None:
+        run.return_value.returncode = 0
+        run.return_value.stdout = (
+            b'{"streams":[{"codec_type":"video","width":1920,"height":1080,'
+            b'"avg_frame_rate":"30/1","codec_name":"h264","pix_fmt":"yuv420p",'
+            b'"tags":{"title":"\\uc778\\ud2b8\\ub85c"}}],'
+            b'"format":{"duration":"12.5"}}'
+        )
+        run.return_value.stderr = b""
+
+        result = probe_video("인트로.mp4")
+
+        self.assertEqual(result["duration"], 12.5)
+        self.assertEqual(result["width"], 1920)
+        self.assertNotIn("text", run.call_args.kwargs)
+        self.assertNotIn("encoding", run.call_args.kwargs)
+
+    @patch("vrew_auto_editor.postprocess.subprocess.run")
+    @patch("vrew_auto_editor.postprocess.shutil.which", return_value="ffprobe")
+    def test_probe_video_reports_ffprobe_failure(self, _which, run) -> None:
+        run.return_value.returncode = 1
+        run.return_value.stdout = b""
+        run.return_value.stderr = "파일을 열 수 없습니다".encode()
+
+        with self.assertRaisesRegex(VrewError, "파일을 열 수 없습니다"):
+            probe_video("인트로.mp4")
+
     def test_intro_files_are_numerically_sorted(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

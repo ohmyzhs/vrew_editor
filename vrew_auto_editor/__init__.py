@@ -3,4 +3,4 @@
 from .workflow import analyze_project, transform_project
 
 __all__ = ["analyze_project", "transform_project"]
-__version__ = "0.2.1"
+__version__ = "0.2.2"

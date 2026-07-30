@@ -1,6 +1,6 @@
 [package]
 name = "vrew-auto-editor"
-version = "0.2.1"
+version = "0.2.2"
 description = "Vrew project automation desktop app"
 authors = ["gabriel.k"]
 edition = "2021"

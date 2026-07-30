@@ -1,5 +1,6 @@
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
+#[cfg(target_os = "windows")]
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -14,8 +15,7 @@ struct EngineOutput {
 }
 
 #[cfg(target_os = "windows")]
-const ENGINE_BYTES: &[u8] =
-    include_bytes!("../binaries/vrew-engine-x86_64-pc-windows-msvc.exe");
+const ENGINE_BYTES: &[u8] = include_bytes!("../binaries/vrew-engine-x86_64-pc-windows-msvc.exe");
 
 #[cfg(target_os = "windows")]
 fn embedded_engine_path() -> Result<PathBuf, String> {
@@ -25,8 +25,8 @@ fn embedded_engine_path() -> Result<PathBuf, String> {
     std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
 
     let path = directory.join("vrew-engine.exe");
-    let needs_write = std::fs::metadata(&path)
-        .map(|metadata| metadata.len() != ENGINE_BYTES.len() as u64)
+    let needs_write = std::fs::read(&path)
+        .map(|installed| installed != ENGINE_BYTES)
         .unwrap_or(true);
 
     if needs_write {
@@ -54,14 +54,18 @@ fn run_engine(args: Vec<String>) -> Result<EngineOutput, String> {
     let mut command = Command::new("vrew-engine");
 
     let output = command
+        .env("PYTHONUTF8", "1")
+        .env("PYTHONIOENCODING", "utf-8")
         .args(args)
         .output()
         .map_err(|error| format!("편집 엔진을 실행할 수 없습니다: {error}"))?;
 
     Ok(EngineOutput {
         code: output.status.code().unwrap_or(-1),
-        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        stdout: String::from_utf8(output.stdout)
+            .map_err(|_| "편집 엔진의 표준 출력이 UTF-8이 아닙니다.".to_string())?,
+        stderr: String::from_utf8(output.stderr)
+            .map_err(|_| "편집 엔진의 오류 출력이 UTF-8이 아닙니다.".to_string())?,
     })
 }
 
