@@ -12,10 +12,42 @@ from .project import (
     VrewProject,
     add_asset_to_clips,
     clip_caption,
+    clip_duration,
     short_id,
     uuid_id,
     validate_integrity,
 )
+
+FINAL_CAPTION_ATTRIBUTES = {
+    "outline-on": "true",
+    "font": "BM EULJIRO-Vrew_400",
+    "size": "170",
+    "color": "#eaf28f",
+    "outline-color": "#000000",
+    "outline-width": "5",
+    "letter-spacing": "-0.05",
+}
+FINAL_CAPTION_STYLE = {
+    "mediaId": "uc-0010-simple-textbox",
+    "yAlign": "bottom",
+    "yOffset": -0.0475,
+    "xOffset": 0,
+    "rotation": 0,
+    "width": 0.96,
+    "customAttributes": [
+        {
+            "attributeName": "--textbox-color",
+            "type": "color-hex",
+            "value": "#00000066",
+        },
+        {
+            "attributeName": "--textbox-align",
+            "type": "textbox-align",
+            "value": "center",
+        },
+    ],
+    "scaleFactor": 16 / 9,
+}
 
 
 def _normalize(text: str) -> str:
@@ -285,6 +317,63 @@ def apply_caption_template_style(
     }
 
 
+def apply_final_caption_style(project: VrewProject) -> dict[str, Any]:
+    styled_caption_count = 0
+    styled_operation_count = 0
+    for clip in project.clips:
+        for caption in clip.get("captions", []):
+            caption["style"] = copy.deepcopy(FINAL_CAPTION_STYLE)
+            for operation in caption.get("text", []):
+                if not isinstance(operation.get("insert"), str):
+                    continue
+                operation["attributes"] = copy.deepcopy(
+                    FINAL_CAPTION_ATTRIBUTES
+                )
+                styled_operation_count += 1
+            styled_caption_count += 1
+    return {
+        "font": FINAL_CAPTION_ATTRIBUTES["font"],
+        "fontSize": FINAL_CAPTION_ATTRIBUTES["size"],
+        "color": FINAL_CAPTION_ATTRIBUTES["color"],
+        "outlineColor": FINAL_CAPTION_ATTRIBUTES["outline-color"],
+        "outlineWidth": FINAL_CAPTION_ATTRIBUTES["outline-width"],
+        "letterSpacing": FINAL_CAPTION_ATTRIBUTES["letter-spacing"],
+        "position": {
+            key: FINAL_CAPTION_STYLE[key]
+            for key in (
+                "yAlign",
+                "yOffset",
+                "xOffset",
+                "rotation",
+                "width",
+                "scaleFactor",
+            )
+        },
+        "styledClipCount": len(project.clips),
+        "styledCaptionCount": styled_caption_count,
+        "styledTextOperationCount": styled_operation_count,
+    }
+
+
+def apply_dissolve_transition(
+    clip: dict[str, Any],
+    *,
+    duration: float = 1.0,
+) -> dict[str, Any]:
+    actual_duration = min(max(0.0, duration), clip_duration(clip))
+    transition = {
+        "id": short_id(),
+        "type": "cross_fade",
+        "timelineStartOffset": max(
+            0.0,
+            clip_duration(clip) - actual_duration,
+        ),
+        "duration": actual_duration,
+    }
+    clip["transitionModel"] = transition
+    return transition
+
+
 def apply_common_template(
     project: VrewProject,
     source_path: str | Path,
@@ -318,6 +407,23 @@ def apply_common_template(
 
     outro_start = len(project.clips)
     project.data["transcript"]["clips"].extend(imported.clips[2:7])
+
+    transition_clips = [
+        ("beforeSubscribe", subscribe_index - 1),
+        ("afterSubscribe", subscribe_index + 1),
+        ("beforeOutro", outro_start - 1),
+    ]
+    transitions: list[dict[str, Any]] = []
+    for placement, clip_index in transition_clips:
+        if clip_index < 0 or clip_index >= len(project.clips):
+            continue
+        transitions.append(
+            {
+                "placement": placement,
+                "clip": clip_index + 1,
+                **apply_dissolve_transition(project.clips[clip_index]),
+            }
+        )
 
     first_two_assets = set().union(
         *(_clip_asset_ids(clip) for clip in imported.clips[:2])
@@ -355,7 +461,7 @@ def apply_common_template(
             project.tracks[track_id]["zIndex"] = current_max_z + offset
         add_asset_to_clips(project.clips, asset_id)
 
-    caption_style_report = apply_caption_template_style(project, source)
+    caption_style_report = apply_final_caption_style(project)
 
     return {
         "source": str(Path(source_path).expanduser().resolve()),
@@ -370,6 +476,7 @@ def apply_common_template(
         "globalAssetIds": global_asset_ids,
         "globalizedClipCount": len(project.clips),
         "captionStyle": caption_style_report,
+        "transitions": transitions,
         "removedCaptions": [clip_caption(clip) for clip in removed],
         "subscribeCaptions": [
             clip_caption(clip) for clip in imported.clips[:2]

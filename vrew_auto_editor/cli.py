@@ -10,6 +10,24 @@ from .project import VrewError
 from .workflow import analyze_project, transform_project, write_report
 
 
+def configure_utf8_stdio() -> None:
+    """Keep the Tauri sidecar byte protocol UTF-8 on Windows code pages."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="strict")
+        except (OSError, ValueError):
+            # StringIO and already-detached streams do not support reconfigure.
+            continue
+
+
+def serialize_cli_json(payload: object) -> str:
+    """Return an ASCII-only JSON envelope safe across process encodings."""
+    return json.dumps(payload, ensure_ascii=True, indent=2)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="vrew-auto",
@@ -66,6 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_utf8_stdio()
     args = build_parser().parse_args(argv)
     try:
         if args.command == "discover":
@@ -105,7 +124,7 @@ def main(argv: list[str] | None = None) -> int:
         report_path = getattr(args, "report", None)
         if report_path:
             write_report(report, report_path)
-        print(json.dumps(report, ensure_ascii=False, indent=2))
+        print(serialize_cli_json(report))
         return 0
     except (VrewError, OSError, ValueError) as exc:
         print(f"오류: {exc}", file=sys.stderr)

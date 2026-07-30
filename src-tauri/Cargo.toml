@@ -1,6 +1,6 @@
 [package]
 name = "vrew-auto-editor"
-version = "0.2.0"
+version = "0.2.1"
 description = "Vrew project automation desktop app"
 authors = ["gabriel.k"]
 edition = "2021"
@@ -16,3 +16,4 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }

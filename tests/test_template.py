@@ -8,6 +8,8 @@ from pathlib import Path
 
 from vrew_auto_editor.template import (
     apply_caption_template_style,
+    apply_dissolve_transition,
+    apply_final_caption_style,
     import_template_clips,
 )
 from vrew_auto_editor.project import VrewProject
@@ -37,6 +39,42 @@ def project(captions: list[dict], global_style: dict | None = None) -> VrewProje
 
 
 class CaptionTemplateTests(unittest.TestCase):
+    def test_applies_final_video09_caption_style(self) -> None:
+        target = project(
+            [{"text": [{"insert": "최종 자막\n"}]}, {"text": [{"insert": "\n"}]}]
+        )
+
+        report = apply_final_caption_style(target)
+
+        first = target.clips[0]["captions"][0]
+        self.assertEqual(
+            first["text"][0]["attributes"]["font"],
+            "BM EULJIRO-Vrew_400",
+        )
+        self.assertEqual(first["text"][0]["attributes"]["size"], "170")
+        self.assertEqual(
+            first["text"][0]["attributes"]["letter-spacing"],
+            "-0.05",
+        )
+        self.assertEqual(first["style"]["yOffset"], -0.0475)
+        self.assertEqual(report["styledClipCount"], 1)
+
+    def test_applies_one_second_dissolve_to_clip_end(self) -> None:
+        clip = {
+            "words": [
+                {"type": 0, "duration": 2.5},
+                {"type": 1, "duration": 1.0},
+                {"type": 2, "duration": 0},
+            ]
+        }
+
+        transition = apply_dissolve_transition(clip)
+
+        self.assertEqual(transition["type"], "cross_fade")
+        self.assertEqual(transition["duration"], 1.0)
+        self.assertEqual(transition["timelineStartOffset"], 2.5)
+        self.assertEqual(clip["transitionModel"], transition)
+
     def test_copies_font_and_position_without_changing_text(self) -> None:
         target = project(
             [{"text": [{"insert": "원래 자막\n"}]}, {"text": [{"insert": "\n"}]}]

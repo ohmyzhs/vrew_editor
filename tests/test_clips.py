@@ -39,17 +39,20 @@ class SemanticChunkTests(unittest.TestCase):
         self.assertGreater(len(chunks), 1)
         self.assertTrue(
             all(
-                visible_length(" ".join(chunk)) <= soft_character_limit(20)
+                visible_length(" ".join(chunk)) <= 20
                 for chunk in chunks
             )
         )
 
-    def test_keeps_short_sentences_together(self) -> None:
+    def test_splits_short_sentences_when_combined_exceeds_limit(self) -> None:
         chunks = semantic_chunks(
             ["아이가", "돌아왔습니다.", "마을은", "조용해졌습니다."],
             max_chars=20,
         )
-        self.assertEqual(len(chunks), 1)
+        self.assertEqual(
+            chunks,
+            [["아이가", "돌아왔습니다."], ["마을은", "조용해졌습니다."]],
+        )
 
     def test_ignores_short_comma_marker(self) -> None:
         chunks = semantic_chunks(
@@ -83,8 +86,12 @@ class SemanticChunkTests(unittest.TestCase):
             ],
             max_chars=20,
         )
-        self.assertEqual(chunks[0][-1], "나갔고,")
-        self.assertEqual(chunks[1][0], "여윈")
+        comma_boundary = next(
+            index
+            for index, chunk in enumerate(chunks[:-1])
+            if chunk[-1] == "나갔고,"
+        )
+        self.assertEqual(chunks[comma_boundary + 1][0], "여윈")
 
     def test_keeps_short_intro_comma_with_following_words(self) -> None:
         chunks = semantic_chunks(
@@ -105,7 +112,7 @@ class SemanticChunkTests(unittest.TestCase):
         )
         self.assertNotEqual(chunks[0], ["그럼", "지금부터,"])
 
-    def test_keeps_short_dialogue_punctuation_within_tolerance(self) -> None:
+    def test_keeps_short_dialogue_punctuation_balanced(self) -> None:
         cases = [
             ['"네가', "어디서", "왔든,", "오늘부터", "내", '딸이다."'],
             ['"이', "손", "놓아라!", "내", "딸이다,", "내", "딸이란", '말이다!"'],
@@ -121,15 +128,25 @@ class SemanticChunkTests(unittest.TestCase):
                 self.assertTrue(
                     all(
                         visible_length(" ".join(chunk))
-                        <= soft_character_limit(20)
+                        <= 20
                         for chunk in chunks
                     )
                 )
 
-    def test_allows_ten_percent_character_tolerance(self) -> None:
+    def test_enforces_strict_character_limit(self) -> None:
         tokens = ["가나다라마바사아자차", "카타파하거너더러머버", "서"]
-        self.assertEqual(visible_length(" ".join(tokens)), 21)
-        self.assertEqual(semantic_chunks(tokens, max_chars=20), [tokens])
+        self.assertEqual(visible_length(" ".join(tokens)), 23)
+        self.assertGreater(len(semantic_chunks(tokens, max_chars=20)), 1)
+
+    def test_counts_spaces_as_displayed_characters(self) -> None:
+        self.assertEqual(visible_length("열 해 전 겨울, 눈이"), 12)
+        chunks = semantic_chunks(
+            ["가나다라마바사", "아자차카타파하", "거너더러"],
+            max_chars=20,
+        )
+        self.assertTrue(
+            all(visible_length(" ".join(chunk)) <= 20 for chunk in chunks)
+        )
 
     def test_reflows_open_quote_across_tts_time_reset(self) -> None:
         def clip(

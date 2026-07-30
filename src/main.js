@@ -1,6 +1,6 @@
 import "./style.css";
+import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { Command } from "@tauri-apps/plugin-shell";
 
 const COMMON_TEMPLATE_STORAGE_KEY = "vrew-auto-editor.common-template";
 
@@ -64,10 +64,9 @@ async function discoverFromSource() {
   if (!source) return;
   status.className = "status";
   status.textContent = "원본 폴더에서 대본·이미지·인트로를 찾고 있습니다…";
-  const result = await Command.sidecar(
-    "binaries/vrew-engine",
-    ["discover", source],
-  ).execute();
+  const result = await invoke("run_engine", {
+    args: ["discover", source],
+  });
   if (result.code !== 0) {
     throw new Error(result.stderr.trim() || "관련 파일 자동 탐색에 실패했습니다.");
   }
@@ -212,7 +211,7 @@ async function run(mode) {
   try {
     const args = buildArgs(mode);
     setBusy(true, mode === "analyze" ? "프로젝트를 분석하고 있습니다…" : "복제본을 생성하고 있습니다…");
-    const output = await Command.sidecar("binaries/vrew-engine", args).execute();
+    const output = await invoke("run_engine", { args });
     if (output.code !== 0) {
       throw new Error(output.stderr.trim() || `편집 엔진 종료 코드: ${output.code}`);
     }

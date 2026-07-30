@@ -19,7 +19,11 @@ from .postprocess import (
     attach_video_overlay,
 )
 from .project import VrewError, VrewProject, clip_duration, uuid_id, validate_integrity
-from .template import analyze_common_template, apply_common_template
+from .template import (
+    analyze_common_template,
+    apply_common_template,
+    apply_final_caption_style,
+)
 
 
 def _load_script(script: str | Path | None) -> tuple[str, dict[int, str]]:
@@ -197,6 +201,8 @@ def transform_project(
         report["aiNoticeAssetId"] = attach_ai_notice(
             project, ai_notice or "이 영상은 AI기술을 이용한 창작물입니다."
         )
+
+    report["finalCaptionStyle"] = apply_final_caption_style(project)
 
     output = project.save(output_path)
     reloaded = VrewProject.load(output)

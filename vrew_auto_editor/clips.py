@@ -27,11 +27,11 @@ DEPENDENT_NEXT = re.compile(
 MIN_CLAUSE_CHARS = 4
 PUNCTUATION_HARD_SPLIT_CHARS = 12
 PREFERRED_MIN_CHUNK_CHARS = 10
-CHARACTER_TOLERANCE_RATIO = 0.10
 
 
 def visible_length(text: str) -> int:
-    return sum(1 for char in text if not char.isspace())
+    """Count displayed characters, including spaces but excluding line breaks."""
+    return sum(1 for char in text if char not in {"\r", "\n"})
 
 
 def semantic_length(text: str) -> int:
@@ -39,8 +39,7 @@ def semantic_length(text: str) -> int:
 
 
 def soft_character_limit(max_chars: int) -> int:
-    tolerance = max(1, round(max_chars * CHARACTER_TOLERANCE_RATIO))
-    return max_chars + tolerance
+    return max_chars
 
 
 def normalized_token(text: str) -> str:
@@ -218,7 +217,8 @@ def _chunk_tokens(
     for token in tokens:
         prefix.append(prefix[-1] + visible_length(token))
         semantic_prefix.append(semantic_prefix[-1] + semantic_length(token))
-    if prefix[-1] <= soft_max_chars:
+    total_length = prefix[-1] + max(0, len(tokens) - 1)
+    if total_length <= soft_max_chars:
         return [tokens]
 
     # Cost tuple: fewest clips first, then semantic/length quality.
@@ -230,8 +230,12 @@ def _chunk_tokens(
             previous = best[left]
             if previous is None:
                 continue
-            length = prefix[right] - prefix[left]
             token_count = right - left
+            length = (
+                prefix[right]
+                - prefix[left]
+                + max(0, token_count - 1)
+            )
             if length > soft_max_chars and token_count > 1:
                 continue
             short_penalty = (
@@ -428,7 +432,7 @@ def _repair_scene(
         template.setdefault("dirty", {})["video"] = True
         new_clips.append(template)
 
-    reasons = ["따옴표/문장부호/20글자 의미 단위 재분할"]
+    reasons = ["따옴표/문장부호/공백 포함 20글자 의미 단위 재분할"]
     if any(
         visible_length(text) > soft_character_limit(max_chars)
         for text in after
