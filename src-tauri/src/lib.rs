@@ -1,99 +1,88 @@
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+use std::path::PathBuf;
+use std::process::Command;
+
 use serde::Serialize;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct EngineOutput {
     code: i32,
     stdout: String,
     stderr: String,
 }
 
-fn engine_filename() -> &'static str {
-    if cfg!(target_os = "windows") {
-        "vrew-engine.exe"
-    } else {
-        "vrew-engine"
-    }
-}
+#[cfg(target_os = "windows")]
+const ENGINE_BYTES: &[u8] =
+    include_bytes!("../binaries/vrew-engine-x86_64-pc-windows-msvc.exe");
 
-fn development_sidecar_path() -> Option<PathBuf> {
-    let triple = match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("windows", "x86_64") => "x86_64-pc-windows-msvc",
-        ("windows", "aarch64") => "aarch64-pc-windows-msvc",
-        ("macos", "aarch64") => "aarch64-apple-darwin",
-        ("macos", "x86_64") => "x86_64-apple-darwin",
-        ("linux", "x86_64") => "x86_64-unknown-linux-gnu",
-        ("linux", "aarch64") => "aarch64-unknown-linux-gnu",
-        _ => return None,
-    };
-    let extension = if cfg!(target_os = "windows") {
-        ".exe"
-    } else {
-        ""
-    };
-    Some(
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("binaries")
-            .join(format!("vrew-engine-{triple}{extension}")),
-    )
-}
+#[cfg(target_os = "windows")]
+fn embedded_engine_path() -> Result<PathBuf, String> {
+    let directory = std::env::temp_dir()
+        .join("vrew-auto-editor")
+        .join(env!("CARGO_PKG_VERSION"));
+    std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
 
-fn locate_engine() -> Result<PathBuf, String> {
-    let current_exe = std::env::current_exe()
-        .map_err(|error| format!("앱 실행 경로를 확인하지 못했습니다: {error}"))?;
-    let mut candidates = vec![current_exe
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join(engine_filename())];
-    if let Some(path) = development_sidecar_path() {
-        candidates.push(path);
-    }
-    candidates
-        .into_iter()
-        .find(|path| path.is_file())
-        .ok_or_else(|| "Vrew 편집 엔진 실행 파일을 찾지 못했습니다.".to_string())
-}
+    let path = directory.join("vrew-engine.exe");
+    let needs_write = std::fs::metadata(&path)
+        .map(|metadata| metadata.len() != ENGINE_BYTES.len() as u64)
+        .unwrap_or(true);
 
-fn execute_engine(executable: PathBuf, args: Vec<String>) -> Result<EngineOutput, String> {
-    let mut command = Command::new(executable);
-    command
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        command.creation_flags(CREATE_NO_WINDOW);
+    if needs_write {
+        let temporary = directory.join(format!("vrew-engine-{}.tmp", std::process::id()));
+        std::fs::write(&temporary, ENGINE_BYTES).map_err(|error| error.to_string())?;
+        if path.exists() {
+            std::fs::remove_file(&path).map_err(|error| error.to_string())?;
+        }
+        std::fs::rename(&temporary, &path).map_err(|error| error.to_string())?;
     }
-    let output = command
-        .output()
-        .map_err(|error| format!("Vrew 편집 엔진을 실행하지 못했습니다: {error}"))?;
-    Ok(EngineOutput {
-        code: output.status.code().unwrap_or(-1),
-        stdout: String::from_utf8(output.stdout)
-            .map_err(|_| "편집 엔진의 출력이 UTF-8이 아닙니다.".to_string())?,
-        stderr: String::from_utf8(output.stderr)
-            .map_err(|_| "편집 엔진의 오류 출력이 UTF-8이 아닙니다.".to_string())?,
-    })
+
+    Ok(path)
 }
 
 #[tauri::command]
-async fn run_engine(args: Vec<String>) -> Result<EngineOutput, String> {
-    let executable = locate_engine()?;
-    tauri::async_runtime::spawn_blocking(move || execute_engine(executable, args))
-        .await
-        .map_err(|error| format!("편집 엔진 작업을 기다리지 못했습니다: {error}"))?
+fn run_engine(args: Vec<String>) -> Result<EngineOutput, String> {
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut command = Command::new(embedded_engine_path()?);
+        command.creation_flags(0x08000000);
+        command
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let mut command = Command::new("vrew-engine");
+
+    let output = command
+        .args(args)
+        .output()
+        .map_err(|error| format!("편집 엔진을 실행할 수 없습니다: {error}"))?;
+
+    Ok(EngineOutput {
+        code: output.status.code().unwrap_or(-1),
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+    })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![run_engine])
         .run(tauri::generate_context!())
         .expect("error while running Vrew Auto Editor");
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::run_engine;
+
+    #[test]
+    fn embedded_engine_can_start() {
+        let output = run_engine(vec!["--help".to_string()])
+            .expect("embedded engine should be extracted and started");
+        assert_eq!(output.code, 0, "{}", output.stderr);
+        assert!(output.stdout.contains("usage:"));
+    }
 }

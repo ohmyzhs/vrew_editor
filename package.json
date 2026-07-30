@@ -5,17 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --outDir frontend-dist",
     "sidecar": "python build_sidecar.py",
     "tauri": "tauri",
     "tauri:dev": "npm run sidecar && tauri dev",
     "tauri:build": "npm run sidecar && tauri build --bundles app",
+    "tauri:build:windows:portable": "npm run sidecar && tauri build --no-bundle",
     "tauri:build:windows": "npm run sidecar && tauri build --bundles nsis"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
-    "@tauri-apps/plugin-dialog": "^2.4.0",
-    "@tauri-apps/plugin-shell": "^2.3.0"
+    "@tauri-apps/plugin-dialog": "^2.4.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.8.4",

@@ -8,6 +8,7 @@ __pycache__/
 node_modules/
 build/
 dist/
+frontend-dist/
 *.spec
 artifacts/
 src-tauri/target/

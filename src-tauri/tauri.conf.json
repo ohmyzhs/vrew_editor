@@ -7,7 +7,7 @@
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
+    "frontendDist": "../frontend-dist"
   },
   "app": {
     "windows": [
@@ -28,7 +28,6 @@
   "bundle": {
     "active": true,
     "targets": ["app"],
-    "externalBin": ["binaries/vrew-engine"],
     "macOS": {
       "minimumSystemVersion": "12.0",
       "signingIdentity": "-",

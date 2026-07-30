@@ -6,16 +6,6 @@
   "permissions": [
     "core:default",
     "dialog:allow-open",
-    "dialog:allow-save",
-    {
-      "identifier": "shell:allow-execute",
-      "allow": [
-        {
-          "name": "binaries/vrew-engine",
-          "sidecar": true,
-          "args": true
-        }
-      ]
-    }
+    "dialog:allow-save"
   ]
 }
