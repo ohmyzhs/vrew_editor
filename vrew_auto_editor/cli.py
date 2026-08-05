@@ -6,6 +6,7 @@ import os
 import sys
 from pathlib import Path
 
+from .dependencies import ensure_dependencies
 from .discovery import discover_companion_paths
 from .project import VrewError
 from .workflow import analyze_project, transform_project, write_report
@@ -43,6 +44,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="원본 Vrew 주변의 대본·이미지·인트로와 기본 출력 경로 탐색",
     )
     discover.add_argument("source")
+
+    subparsers.add_parser(
+        "dependencies",
+        help="FFmpeg·FFprobe 필수 실행 파일 확인 및 자동 설치",
+    )
 
     analyze = subparsers.add_parser("analyze", help="원본을 변경하지 않고 분석")
     analyze.add_argument("source")
@@ -92,6 +98,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "discover":
             report = discover_companion_paths(args.source)
+        elif args.command == "dependencies":
+            report = ensure_dependencies()
         elif args.command == "analyze":
             report = analyze_project(
                 args.source,

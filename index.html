@@ -7,61 +7,161 @@
     <script type="module" src="/src/main.js"></script>
   </head>
   <body>
-    <main>
-      <header>
-        <div>
-          <p class="eyebrow">LOCAL DESKTOP WORKFLOW</p>
-          <h1>Vrew 자동 편집기</h1>
-          <p class="lead">경로를 고르고 분석한 다음, 원본을 보존한 복제본을 만듭니다.</p>
+    <div class="app-frame">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark">V</div>
+          <div>
+            <p class="eyebrow">LOCAL DESKTOP WORKFLOW</p>
+            <h1>Vrew 자동 편집기</h1>
+          </div>
         </div>
-        <span class="local-badge">컴퓨터 안에서만 처리</span>
+        <div class="header-meta">
+          <span class="local-badge"><i></i> 로컬에서 안전하게 처리</span>
+          <span class="version-label">AUTO EDITOR</span>
+        </div>
       </header>
 
-      <div class="layout">
-        <section class="panel form-panel">
-          <h2>파일 선택</h2>
-          <div id="path-fields"></div>
-          <p class="auto-note">원본 Vrew를 고르면 같은 폴더의 <code>*_flow_prompts.txt</code>, <code>intro1~n.mp4</code>와 하위 폴더의 번호 이미지를 자동으로 찾습니다. 공통 클립 경로는 다음 실행에도 기억합니다.</p>
+      <main class="app-main">
+        <section class="card source-card">
+          <div class="card-heading">
+            <div>
+              <span class="step-label">01 / SOURCE</span>
+              <h2>작업할 원본을 선택하세요</h2>
+            </div>
+            <span class="heading-note">.vrew 프로젝트</span>
+          </div>
+          <div class="source-block">
+            <button id="pick-source" class="source-button" disabled>
+              <span class="button-icon">＋</span>
+              <span class="button-copy">
+                <strong>Vrew 원본 선택</strong>
+                <small>파일 탐색기 열기</small>
+              </span>
+              <span class="button-arrow">→</span>
+            </button>
+            <div id="source-info" class="source-info empty">
+              <span class="source-status">선택 대기 중</span>
+              <span class="source-name">Vrew 원본 파일이 아직 선택되지 않았습니다</span>
+              <span class="source-meta">원본을 선택하면 주변 파일과 메타정보를 자동으로 확인합니다</span>
+            </div>
+          </div>
+        </section>
 
-          <div class="section-title">
-            <h2>편집 옵션</h2>
-            <span>규칙 기반</span>
+        <section class="card detect-card">
+          <div class="card-heading">
+            <div>
+              <span class="step-label">02 / AUTO DISCOVERY</span>
+              <h2>자동 인식 결과</h2>
+            </div>
+            <span class="heading-note">원본 폴더 기준으로 탐색</span>
+          </div>
+          <ul class="detect-list">
+            <li id="detect-script" class="detect pending">
+              <span class="detect-index">A</span>
+              <span class="dot"></span>
+              <div class="detect-body">
+                <strong>넘버링 대본</strong>
+                <span class="detect-detail">대기 중</span>
+              </div>
+              <span class="detect-state">WAIT</span>
+            </li>
+            <li id="detect-images" class="detect pending">
+              <span class="detect-index">B</span>
+              <span class="dot"></span>
+              <div class="detect-body">
+                <strong>번호 이미지 폴더</strong>
+                <span class="detect-detail">대기 중</span>
+              </div>
+              <span class="detect-state">WAIT</span>
+            </li>
+            <li id="detect-intros" class="detect pending">
+              <span class="detect-index">C</span>
+              <span class="dot"></span>
+              <div class="detect-body">
+                <strong>인트로 영상</strong>
+                <span class="detect-detail">대기 중</span>
+              </div>
+              <span class="detect-state">WAIT</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="card config-card">
+          <div class="card-heading">
+            <div>
+              <span class="step-label">03 / CONFIGURATION</span>
+              <h2>파일 설정</h2>
+            </div>
+            <span class="heading-note">필요한 항목만 직접 지정</span>
+          </div>
+          <div class="config-grid">
+            <div class="field-row">
+              <div class="field-label">
+                <strong>공통 클립 Vrew</strong>
+                <span>선택 경로를 다음 실행에도 기억합니다</span>
+              </div>
+              <div class="field-control">
+                <button id="pick-common" class="pick" disabled>파일 선택</button>
+                <span id="common-path" class="mini-path">선택된 파일 없음</span>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-label">
+                <strong>출력 Vrew</strong>
+                <span>원본과 같은 폴더에 저장</span>
+              </div>
+              <div class="field-control output-control">
+                <span id="output-dir" class="fixed-label">원본과 같은 폴더</span>
+                <input id="output-name" placeholder="원본 선택 시 자동 완성" disabled />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card options-card">
+          <div class="card-heading">
+            <div>
+              <span class="step-label">04 / EDIT OPTIONS</span>
+              <h2>편집 옵션</h2>
+            </div>
+            <span class="heading-note">규칙 기반 자동 편집</span>
           </div>
           <div class="checks">
-            <label><input id="repair" type="checkbox" checked /> 대사·나레이션 재분배</label>
-            <label><input id="attach-images" type="checkbox" checked /> 번호 이미지 첨부</label>
-            <label><input id="ken-burns" type="checkbox" checked /> Ken Burns 움직임</label>
+            <label><input id="repair" type="checkbox" checked /><span>대사·나레이션 재분배</span></label>
+            <label><input id="attach-images" type="checkbox" checked /><span>번호 이미지 첨부</span></label>
+            <label><input id="ken-burns" type="checkbox" checked /><span>Ken Burns 움직임</span></label>
           </div>
           <div class="option-grid">
-            <label>최대 글자<input id="max-chars" type="number" value="20" /></label>
-            <label>최소 초<input id="min-seconds" type="number" value="15" /></label>
-            <label>최대 초<input id="max-seconds" type="number" value="20" /></label>
-            <label>이미지 변형<input id="variant" value="1" title="001-1, 001-2처럼 같은 번호의 이미지가 여러 개일 때 우선 사용할 하이픈 뒤 번호" /></label>
-            <label>랜덤 시드<input id="seed" type="number" value="20260728" /></label>
+            <label><span>최대 글자</span><input id="max-chars" type="number" value="20" /></label>
+            <label><span>최소 초</span><input id="min-seconds" type="number" value="15" /></label>
+            <label><span>최대 초</span><input id="max-seconds" type="number" value="20" /></label>
+            <label><span>이미지 변형</span><input id="variant" value="1" title="001-1, 001-2처럼 같은 번호의 이미지가 여러 개일 때 우선 사용할 하이픈 뒤 번호" /></label>
+            <label><span>랜덤 시드</span><input id="seed" type="number" value="20260728" /></label>
           </div>
-          <p class="option-note"><strong>이미지 변형 1</strong>: <code>001-1.jpeg</code>, <code>001-2.jpeg</code>처럼 같은 장면 이미지가 여러 개일 때 <code>-1</code> 파일을 우선 선택한다는 뜻입니다. 이미지가 하나뿐이면 영향이 없습니다.</p>
+        </section>
 
-          <div class="rule-box">
-            <strong>공통 Vrew 적용 규칙</strong>
-            <p>1~2번은 기존 구독 안내를 교체하고 3~7번은 끝에 추가합니다. 워터마크, AI 안내 문구, 자막 글꼴·색·외곽선·위치도 전체 클립에 복제합니다.</p>
+        <section class="action-area">
+          <div class="action-copy">
+            <span class="step-label">READY TO RUN</span>
+            <div id="status" class="status">Vrew 원본을 선택하면 시작할 수 있습니다.</div>
+            <button id="retry-dependencies" class="retry-button" hidden>필수 프로그램 다시 확인</button>
           </div>
-
           <div class="actions">
-            <button id="analyze">변경안 분석</button>
-            <button id="transform" class="primary">복제본 생성</button>
+            <button id="analyze" disabled>자동편집 체크 <span>→</span></button>
+            <button id="transform" class="primary" disabled>자동편집 실행 및 저장 <span>→</span></button>
           </div>
-          <div id="status" class="status">준비되었습니다.</div>
         </section>
+        <div id="metrics" class="metrics"></div>
+      </main>
+    </div>
 
-        <section class="panel result-panel">
-          <div class="section-title">
-            <h2>검증 결과</h2>
-            <span id="result-state">대기 중</span>
-          </div>
-          <div id="metrics" class="metrics"></div>
-          <pre id="result">분석 결과가 여기에 표시됩니다.</pre>
-        </section>
+    <div id="overlay" class="overlay hidden">
+      <div class="overlay-card">
+        <div class="spinner"></div>
+        <p id="overlay-message">처리 중…</p>
+        <ul id="overlay-steps" class="overlay-steps"></ul>
       </div>
-    </main>
+    </div>
   </body>
 </html>

@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
+from .dependencies import resolve_binary
 from .images import _register_image
 from .project import (
     VrewError,
@@ -118,18 +117,7 @@ def attach_ai_notice(
 
 def probe_video(path: str | Path) -> dict[str, Any]:
     source = Path(path).expanduser().resolve()
-    executable = shutil.which("ffprobe")
-    if not executable:
-        candidates = [
-            Path(sys.executable).resolve().parent / "ffprobe",
-            Path(sys.executable).resolve().parent / "ffprobe.exe",
-            Path("/opt/homebrew/bin/ffprobe"),
-            Path("/usr/local/bin/ffprobe"),
-        ]
-        executable = next(
-            (str(candidate) for candidate in candidates if candidate.is_file()),
-            None,
-        )
+    executable = resolve_binary("ffprobe")
     if not executable:
         raise VrewError(
             "인트로 영상 분석에 ffprobe가 필요합니다. FFmpeg를 설치하거나 "
@@ -337,24 +325,29 @@ def attach_video_overlay(
     }
 
 
+INTRO_VIDEO_NAME = re.compile(r"^intro[\s_-]*(\d+)$", re.IGNORECASE)
+NUMERIC_VIDEO_NAME = re.compile(r"^0*(\d{1,3})$")
+INTRO_VIDEO_SUFFIXES = {".mp4": 0, ".mov": 1, ".m4v": 1, ".mkv": 1}
+
+
 def discover_intro_videos(directory: str | Path) -> list[Path]:
     root = Path(directory).expanduser().resolve()
     if not root.is_dir():
         raise VrewError(f"인트로 영상 폴더를 찾을 수 없습니다: {root}")
-    matches: list[tuple[int, Path]] = []
+    matches: list[tuple[int, int, Path]] = []
     for path in root.iterdir():
-        if not path.is_file() or path.suffix.lower() not in {
-            ".mp4",
-            ".mov",
-            ".mkv",
-            ".m4v",
-        }:
+        if not path.is_file():
             continue
-        match = re.match(r"^intro[\s_-]*(\d+)$", path.stem, re.IGNORECASE)
+        extension_rank = INTRO_VIDEO_SUFFIXES.get(path.suffix.lower())
+        if extension_rank is None:
+            continue
+        match = INTRO_VIDEO_NAME.match(path.stem) or NUMERIC_VIDEO_NAME.match(
+            path.stem
+        )
         if match:
-            matches.append((int(match.group(1)), path))
-    matches.sort(key=lambda item: (item[0], item[1].name.casefold()))
-    return [path for _, path in matches]
+            matches.append((int(match.group(1)), extension_rank, path))
+    matches.sort(key=lambda item: (item[0], item[1], item[2].name.casefold()))
+    return [path for _, _, path in matches]
 
 
 def _equal_duration_partitions(

@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import os
 import re
-from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from .images import IMAGE_SUFFIXES
+from .images import IMAGE_SUFFIXES, parse_numbered_script
 from .postprocess import discover_intro_videos
-from .project import VrewError
+from .project import VrewError, VrewProject, clip_duration
 
 
 NUMBERED_IMAGE = re.compile(r"^\d{1,4}(?:[-_]\d+)?(?:\D|$)")
@@ -30,25 +29,29 @@ def _numbered_image_paths(root: Path) -> list[Path]:
 def _preferred_image_root(base: Path, images: list[Path]) -> Path | None:
     if not images:
         return None
-
-    studio_roots: Counter[Path] = Counter()
-    for image in images:
-        for parent in image.parents:
-            if parent == base.parent:
-                break
-            if parent.name.casefold() == "flow batch studio":
-                studio_roots[parent] += 1
-                break
-            if parent == base:
-                break
-    if studio_roots:
-        return sorted(
-            studio_roots,
-            key=lambda path: (-studio_roots[path], str(path).casefold()),
-        )[0]
-
     common = Path(os.path.commonpath([str(path.parent) for path in images]))
     return common if common == base or base in common.parents else base
+
+
+def _source_meta(source: Path) -> dict[str, Any] | None:
+    try:
+        project = VrewProject.load(source)
+    except VrewError:
+        return None
+    return {
+        "clipCount": len(project.clips),
+        "durationSeconds": round(
+            sum(clip_duration(clip) for clip in project.clips), 1
+        ),
+    }
+
+
+def _script_line_count(script: Path) -> int | None:
+    try:
+        text = script.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    return len(parse_numbered_script(text))
 
 
 def discover_companion_paths(source_path: str | Path) -> dict[str, Any]:
@@ -80,15 +83,18 @@ def discover_companion_paths(source_path: str | Path) -> dict[str, Any]:
     if not intros:
         warnings.append("원본 폴더에서 intro1~n 영상을 찾지 못했습니다.")
 
+    script = scripts[0] if scripts else None
     return {
         "source": str(source),
         "directory": str(base),
-        "script": str(scripts[0]) if scripts else None,
+        "script": str(script) if script else None,
+        "scriptLineCount": _script_line_count(script) if script else None,
         "scriptCandidates": [str(path) for path in scripts],
         "images": str(image_root) if image_root else None,
         "numberedImageCount": len(numbered_images),
         "introDirectory": str(base) if intros else None,
         "introVideos": [str(path) for path in intros],
         "output": str(output),
+        "sourceMeta": _source_meta(source),
         "warnings": warnings,
     }

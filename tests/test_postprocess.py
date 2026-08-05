@@ -21,7 +21,7 @@ def clip(duration: float) -> dict:
 
 class IntroPlanningTests(unittest.TestCase):
     @patch("vrew_auto_editor.postprocess.subprocess.run")
-    @patch("vrew_auto_editor.postprocess.shutil.which", return_value="ffprobe")
+    @patch("vrew_auto_editor.postprocess.resolve_binary", return_value="ffprobe")
     def test_probe_video_decodes_utf8_without_windows_codepage(
         self, _which, run
     ) -> None:
@@ -42,7 +42,7 @@ class IntroPlanningTests(unittest.TestCase):
         self.assertNotIn("encoding", run.call_args.kwargs)
 
     @patch("vrew_auto_editor.postprocess.subprocess.run")
-    @patch("vrew_auto_editor.postprocess.shutil.which", return_value="ffprobe")
+    @patch("vrew_auto_editor.postprocess.resolve_binary", return_value="ffprobe")
     def test_probe_video_reports_ffprobe_failure(self, _which, run) -> None:
         run.return_value.returncode = 1
         run.return_value.stdout = b""

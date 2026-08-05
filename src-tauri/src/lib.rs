@@ -1,6 +1,8 @@
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -17,7 +19,13 @@ struct EngineOutput {
 #[cfg(target_os = "windows")]
 const ENGINE_BYTES: &[u8] = include_bytes!("../binaries/vrew-engine-x86_64-pc-windows-msvc.exe");
 
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+const ENGINE_BYTES: &[u8] = include_bytes!("../binaries/vrew-engine-aarch64-apple-darwin");
+
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+const ENGINE_BYTES: &[u8] = include_bytes!("../binaries/vrew-engine-x86_64-apple-darwin");
+
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 fn embedded_engine_path() -> Result<PathBuf, String> {
     let directory = std::env::temp_dir()
         .join("vrew-auto-editor")
@@ -32,6 +40,14 @@ fn embedded_engine_path() -> Result<PathBuf, String> {
     if needs_write {
         let temporary = directory.join(format!("vrew-engine-{}.tmp", std::process::id()));
         std::fs::write(&temporary, ENGINE_BYTES).map_err(|error| error.to_string())?;
+        #[cfg(unix)]
+        {
+            let mut permissions = std::fs::metadata(&temporary)
+                .map_err(|error| error.to_string())?
+                .permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(&temporary, permissions).map_err(|error| error.to_string())?;
+        }
         if path.exists() {
             std::fs::remove_file(&path).map_err(|error| error.to_string())?;
         }
@@ -42,7 +58,13 @@ fn embedded_engine_path() -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-fn run_engine(args: Vec<String>) -> Result<EngineOutput, String> {
+async fn run_engine(args: Vec<String>) -> Result<EngineOutput, String> {
+    tauri::async_runtime::spawn_blocking(move || run_engine_blocking(args))
+        .await
+        .map_err(|error| format!("편집 엔진 작업이 중단되었습니다: {error}"))?
+}
+
+fn run_engine_blocking(args: Vec<String>) -> Result<EngineOutput, String> {
     #[cfg(target_os = "windows")]
     let mut command = {
         let mut command = Command::new(embedded_engine_path()?);
@@ -50,7 +72,10 @@ fn run_engine(args: Vec<String>) -> Result<EngineOutput, String> {
         command
     };
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    let mut command = Command::new(embedded_engine_path()?);
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     let mut command = Command::new("vrew-engine");
 
     let output = command
@@ -80,11 +105,11 @@ pub fn run() {
 
 #[cfg(all(test, target_os = "windows"))]
 mod tests {
-    use super::run_engine;
+    use super::run_engine_blocking;
 
     #[test]
     fn embedded_engine_can_start() {
-        let output = run_engine(vec!["--help".to_string()])
+        let output = run_engine_blocking(vec!["--help".to_string()])
             .expect("embedded engine should be extracted and started");
         assert_eq!(output.code, 0, "{}", output.stderr);
         assert!(output.stdout.contains("usage:"));
